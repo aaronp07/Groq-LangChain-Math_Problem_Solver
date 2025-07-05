@@ -19,22 +19,25 @@ if not groq_api_key:
     
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="gemma2-9b-it")
 
-# Initialization the tools
+# Initialization the Wikipedia API Wrapper tool
 wikipedia_wrapper = WikipediaAPIWrapper()
+
 wikipedia_tool = Tool(
-    name="Wikipedia",
-    func=wikipedia_wrapper.run,
-    description="A tool for searching the internet to find the various information on the topic mentioned"
+    name = "Wikipedia",
+    func = wikipedia_wrapper.run,
+    description = "A tool for searching the internet to find the various information on the topic mentioned"
 )
 
-# Initialize the Math Tool
+# Initialize the LLM Math Chain Tool
 math_chain = LLMMathChain.from_llm(llm=llm)
-calculator = Tool(
+
+calculator_tool = Tool(
     name = "Calculator",
     func = math_chain.run,
-    description="A tools for answering math related questions. Only input mathematical expression need to be provide"
+    description="A tools for answering math related questions. Only input mathematical expression need to be provided"
 )
 
+# Prompt
 prompt = """
 Your a agent tasked for solving users mathematical question. Locally arrive at the solution and provide a detailed explaination
 and display it point wise for the question below
@@ -42,6 +45,7 @@ Question: {question}
 Answer:
 """
 
+# Prompt Template
 prompt_template = PromptTemplate(
     input_variables=['question'],
     template = prompt
@@ -58,13 +62,19 @@ reasoning_tool = Tool(
 
 # Initialize the Agents
 assistant_agent = initialize_agent(
-    tools = [wikipedia_tool, calculator, reasoning_tool],
+    tools = [wikipedia_tool, calculator_tool, reasoning_tool],
     llm = llm,
     agent = AgentType.ZERO_SHOT_REACT_DESCRIPTION,
     verbose = False,
     handle_parsing_errors = True
 )
 
+# Function to generate the response
+def generate_response(question):
+    response = assistant_agent.invoke({'input': question})
+    return response
+
+# Check the messages to store previous conversation
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "assistant", "content": "Hi, I'm a Math Chatbot who can answer all your maths questions"}
@@ -73,11 +83,6 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
     
-# Function to generate the response
-def generate_response(question):
-    response = assistant_agent.invoke({'input': question})
-    return response
-
 # Let's start the interaction
 question = st.text_area("Enter your question: ", "I have 5 bananas and 7 grapes. I eat 2 bananas and give away 3 grapes. Then I buy a dozen apples and 2 packs of blueberries. Each pack of blueberries contains 25 berries. How many total pieces of fruit do I have at the end?")
 
@@ -94,4 +99,4 @@ if st.button("find my answer"):
             st.write("### Response:")
             st.success(response)   
     else:
-        st.warning("Please your question")
+        st.warning("Please enter your question")
